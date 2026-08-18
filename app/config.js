@@ -8,5 +8,5 @@
 //  до базата, а този файл е публичен.
 // ============================================================
 
-export const SUPABASE_URL = "";
-export const SUPABASE_ANON_KEY = "";
+export const SUPABASE_URL = "https://znvmvdmnwefczngnlrrp.supabase.co";
+export const SUPABASE_ANON_KEY = "sb_publishable_NgwTRv8ZD5lGrg6eYhoy5Q_FNGDkMfY";
