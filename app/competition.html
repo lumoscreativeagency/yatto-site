@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Състезание — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .hero{border-radius:18px;padding:18px;border:1px solid var(--graphite);margin-bottom:14px;
+    background:linear-gradient(150deg,rgba(241,255,0,.12),transparent 62%),var(--charcoal)}
+  .hero h2{font-size:25px;line-height:1.06;margin:9px 0 8px}
+  .seat{display:flex;gap:6px;margin-top:10px}
+  .seat i{width:20px;height:25px;border-radius:5px;background:var(--graphite);display:block}
+  .seat i.f{background:var(--ember)}
+  .seat i.o{background:transparent;border:1.5px dashed var(--ash)}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+<main><div class="wrap" id="root"><div class="skeleton" style="height:150px"></div><div class="skeleton"></div></div></main>
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, dateRange, daysUntil,
+         initials, igHandle, renderNotConfigured, show } from "./app.js";
+
+const id = Number(new URLSearchParams(location.search).get("id"));
+
+if (!configured) { mountChrome({ title:"Състезание", active:"comps", back:"competitions.html" }); renderNotConfigured(); }
+else {
+  const profile = await requireAuth();
+  if (profile) await main(profile);
+}
+
+async function main(profile) {
+  const { data: c } = await sb.from("competitions").select("*").eq("id", id).maybeSingle();
+  mountChrome({ title: c ? c.name : "Състезание", active: "comps", back: "competitions.html", profile });
+
+  if (!c) {
+    $("#root").innerHTML = `<div class="empty"><h3>Няма такова състезание</h3>
+      <p class="muted">Може да е изтрито. <a href="competitions.html" style="color:var(--ember)">Обратно към списъка</a></p></div>`;
+    return;
+  }
+
+  await draw(c, profile, "info");
+}
+
+async function draw(c, profile, tab) {
+  const [{ data: atts }, { data: rides }, { data: seats }] = await Promise.all([
+    sb.from("attendances").select("*, profiles(name, city, gym, division, instagram)").eq("competition_id", c.id),
+    sb.from("rides").select("*, profiles(name, city, instagram)").eq("competition_id", c.id).order("departs_at"),
+    sb.from("ride_seats").select("*"),
+  ]);
+
+  const list = atts || [];
+  const me = list.find(a => a.profile_id === profile.id);
+  const others = list.filter(a => a.profile_id !== profile.id);
+  const seeking = others.filter(a => a.looking_for_team);
+  const d = daysUntil(c.starts_on);
+  const deadline = daysUntil(c.registration_deadline);
+
+  $("#root").innerHTML = `
+    <div class="hero">
+      <span class="pill em">${esc(dateRange(c.starts_on, c.ends_on))}</span>
+      <h2>${esc(c.name)}</h2>
+      <div class="muted">${esc(c.city)}${c.country !== "България" ? ", " + esc(c.country) : ""}${c.distance_km ? " · " + c.distance_km + " км от София" : ""}</div>
+      ${d !== null && d >= 0 ? `<div class="tiny" style="margin-top:8px">Остават ${d} ${d === 1 ? "ден" : "дни"}</div>` : ""}
+    </div>
+
+    <div class="row">
+      <button class="btn ${me ? "ghost" : ""}" id="goingBtn">${me ? "Отиваш ✓" : "Отивам"}</button>
+      <button class="btn ghost" id="teamBtn" ${me ? "" : "disabled"}>${me?.looking_for_team ? "Търсиш отбор ✓" : "Търся отбор"}</button>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <div class="seg" id="seg">
+      <button data-t="info" class="${tab === "info" ? "on" : ""}">Инфо</button>
+      <button data-t="people" class="${tab === "people" ? "on" : ""}">Кой отива (${list.length})</button>
+      <button data-t="travel" class="${tab === "travel" ? "on" : ""}">Пътуване</button>
+    </div>
+
+    <div id="pane"></div>
+  `;
+
+  const pane = $("#pane");
+  const panes = {
+    info: () => `
+      <div class="card">
+        ${c.format ? `<div class="kv"><span>Формат</span><b>${esc(c.format)}</b></div>` : ""}
+        ${c.divisions ? `<div class="kv"><span>Дивизии</span><b>${esc(c.divisions)}</b></div>` : ""}
+        ${c.fee ? `<div class="kv"><span>Такса</span><b>${esc(c.fee)}</b></div>` : ""}
+        ${c.registration_deadline ? `<div class="kv"><span>Регистрация до</span>
+          <b style="${deadline !== null && deadline <= 14 ? "color:var(--warn)" : ""}">${esc(dateRange(c.registration_deadline))}</b></div>` : ""}
+        ${c.organiser ? `<div class="kv"><span>Организатор</span><b>${esc(c.organiser)}</b></div>` : ""}
+      </div>
+      ${c.notes ? `<div class="card"><div class="muted" style="white-space:pre-wrap">${esc(c.notes)}</div></div>` : ""}
+      ${c.registration_url ? `<a class="btn" href="${esc(c.registration_url)}" target="_blank" rel="noopener">Към регистрацията ↗</a>` : ""}
+      <p class="tiny" style="margin-top:14px">Записването тук показва на другите, че отиваш. Официалната
+      регистрация се прави при организатора.</p>
+    `,
+
+    people: () => {
+      if (!list.length) return `<div class="empty"><h3>Още никой</h3>
+        <p class="muted">Бъди първата, която казва, че отива. Останалите ще те видят.</p></div>`;
+      const card = (a, mine) => {
+        const p = a.profiles || {};
+        const ig = igHandle(p.instagram);
+        return `<div class="card">
+          <div class="ath">
+            <div class="ava ${mine ? "y" : a.looking_for_team ? "g" : ""}">${esc(initials(p.name))}</div>
+            <div style="min-width:0">
+              <div class="nm">${esc(p.name || "Без име")}${mine ? " (ти)" : ""}</div>
+              <div class="sub">${[p.gym, p.division, p.city].filter(Boolean).map(esc).join(" · ") || "—"}</div>
+            </div>
+            ${a.looking_for_team ? `<span class="pill ok side">Търси отбор</span>` : ""}
+          </div>
+          ${a.note ? `<div class="muted" style="margin-top:10px">„${esc(a.note)}"</div>` : ""}
+          ${!mine && ig ? `<a class="btn sm ghost" style="margin-top:11px" target="_blank" rel="noopener"
+             href="https://instagram.com/${encodeURIComponent(ig)}">Пиши в Instagram @${esc(ig)}</a>` : ""}
+          ${!mine && !ig ? `<p class="tiny" style="margin-top:10px">Няма посочен Instagram — не можеш да се свържеш.</p>` : ""}
+        </div>`;
+      };
+      return (seeking.length
+        ? `<div class="eyebrow">Търсят отбор</div>` + seeking.map(a => card(a, false)).join("")
+        : "")
+        + `<div class="eyebrow">Всички, които отиват</div>`
+        + (me ? card(me, true) : "")
+        + others.filter(a => !a.looking_for_team).map(a => card(a, false)).join("");
+    },
+
+    travel: () => {
+      const taken = {};
+      (seats || []).forEach(s => { taken[s.ride_id] = (taken[s.ride_id] || 0) + 1; });
+      const mySeats = new Set((seats || []).filter(s => s.profile_id === profile.id).map(s => s.ride_id));
+
+      const rideCard = (r) => {
+        const p = r.profiles || {};
+        const used = taken[r.id] || 0;
+        const free = Math.max(0, r.seats_total - used);
+        const iAmDriver = r.driver_id === profile.id;
+        const iAmIn = mySeats.has(r.id);
+        const ig = igHandle(p.instagram);
+        return `<div class="card">
+          <div class="ath">
+            <div class="ava ${iAmDriver ? "y" : ""}">${esc(initials(p.name))}</div>
+            <div style="min-width:0">
+              <div class="nm">${esc(p.name || "Без име")}${iAmDriver ? " (ти)" : ""}</div>
+              <div class="sub">${r.departs_at ? esc(new Date(r.departs_at).toLocaleString("bg-BG", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })) : "Час не е посочен"}${r.from_place ? " · от " + esc(r.from_place) : ""}</div>
+            </div>
+            <span class="pill ${free ? "ok" : "dg"} side">${free ? free + " " + (free === 1 ? "място" : "места") : "Пълна"}</span>
+          </div>
+          <div class="seat">${Array.from({ length: r.seats_total }, (_, i) =>
+            `<i class="${i < used ? "f" : "o"}"></i>`).join("")}</div>
+          ${r.cost_per_person ? `<div class="kv" style="margin-top:11px;border:0"><span>Дял на човек</span><b>${esc(r.cost_per_person)}</b></div>` : ""}
+          ${r.note ? `<div class="muted" style="margin-top:8px">${esc(r.note)}</div>` : ""}
+          ${iAmDriver
+            ? `<button class="btn sm dg" style="margin-top:11px" data-delride="${r.id}">Махни колата</button>`
+            : iAmIn
+              ? `<button class="btn sm ghost" style="margin-top:11px" data-leave="${r.id}">Слизам</button>
+                 ${ig ? `<a class="btn sm ghost" style="margin-top:8px" target="_blank" rel="noopener" href="https://instagram.com/${encodeURIComponent(ig)}">Пиши на шофьора @${esc(ig)}</a>` : ""}`
+              : free
+                ? `<button class="btn sm" style="margin-top:11px" data-join="${r.id}">Качи ме</button>`
+                : ""}
+        </div>`;
+      };
+
+      return `
+        <div class="msg on info">🚗 Пътуването е половината от състезанието. Ако караш — предложи места.
+        Ако не — качи се при някого.</div>
+        ${(rides || []).length ? (rides).map(rideCard).join("")
+          : `<div class="empty"><h3>Още никой не кара</h3><p class="muted">Ако тръгваш с кола, предложи местата си.</p></div>`}
+        <button class="btn ghost" id="offerBtn">Предложи своя кола</button>
+        <div id="offerForm" style="display:none;margin-top:12px" class="card">
+          <div class="field"><label for="dep">Кога тръгваш</label><input type="datetime-local" id="dep"></div>
+          <div class="field"><label for="from">Откъде</label><input id="from" placeholder="напр. София, Люлин" maxlength="80"></div>
+          <div class="grid2">
+            <div class="field"><label for="seats">Свободни места</label><input type="number" id="seats" min="1" max="7" value="3"></div>
+            <div class="field"><label for="cost">Дял на човек</label><input id="cost" placeholder="напр. ~45 лв" maxlength="40"></div>
+          </div>
+          <div class="field"><label for="rnote">Бележка (по избор)</label><input id="rnote" placeholder="напр. има място за 2 сака" maxlength="140"></div>
+          <button class="btn" id="saveRide">Публикувай</button>
+        </div>`;
+    },
+  };
+
+  const paint = (t) => {
+    pane.innerHTML = panes[t]();
+    if (t === "travel") wireTravel(c, profile);
+  };
+  paint(tab);
+
+  $("#seg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-t]"); if (!b) return;
+    $("#seg").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    paint(b.dataset.t);
+  });
+
+  /* --- Отивам / Търся отбор --- */
+  $("#goingBtn").addEventListener("click", async () => {
+    const btn = $("#goingBtn"); btn.disabled = true;
+    if (me) {
+      await sb.from("attendances").delete().eq("competition_id", c.id).eq("profile_id", profile.id);
+    } else {
+      await sb.from("attendances").insert({ competition_id: c.id, profile_id: profile.id, status: "going" });
+    }
+    await draw(c, profile, $("#seg .on")?.dataset.t || "info");
+  });
+
+  $("#teamBtn").addEventListener("click", async () => {
+    if (!me) return;
+    $("#teamBtn").disabled = true;
+    await sb.from("attendances").update({ looking_for_team: !me.looking_for_team })
+      .eq("competition_id", c.id).eq("profile_id", profile.id);
+    await draw(c, profile, "people");
+  });
+}
+
+function wireTravel(c, profile) {
+  const offerBtn = $("#offerBtn"), form = $("#offerForm");
+  offerBtn?.addEventListener("click", () => {
+    const open = form.style.display !== "none";
+    form.style.display = open ? "none" : "block";
+    offerBtn.textContent = open ? "Предложи своя кола" : "Откажи";
+  });
+
+  $("#saveRide")?.addEventListener("click", async () => {
+    const btn = $("#saveRide"); btn.disabled = true;
+    const seats = Math.max(1, Math.min(7, Number($("#seats").value) || 3));
+    const { error } = await sb.from("rides").insert({
+      competition_id: c.id,
+      driver_id: profile.id,
+      departs_at: $("#dep").value ? new Date($("#dep").value).toISOString() : null,
+      from_place: $("#from").value.trim() || null,
+      seats_total: seats,
+      cost_per_person: $("#cost").value.trim() || null,
+      note: $("#rnote").value.trim() || null,
+    });
+    if (error) { console.error(error); btn.disabled = false; return; }
+    await draw(c, profile, "travel");
+  });
+
+  document.querySelectorAll("[data-join]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    await sb.from("ride_seats").insert({ ride_id: Number(b.dataset.join), profile_id: profile.id });
+    await draw(c, profile, "travel");
+  }));
+  document.querySelectorAll("[data-leave]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    await sb.from("ride_seats").delete().eq("ride_id", Number(b.dataset.leave)).eq("profile_id", profile.id);
+    await draw(c, profile, "travel");
+  }));
+  document.querySelectorAll("[data-delride]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    await sb.from("rides").delete().eq("id", Number(b.dataset.delride));
+    await draw(c, profile, "travel");
+  }));
+}
+</script>
+</body>
+</html>

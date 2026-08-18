@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Админ — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+<main><div class="wrap" id="root"><div class="skeleton"></div></div></main>
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, show, hide,
+         dateRange, renderNotConfigured } from "./app.js";
+
+if (!configured) { mountChrome({ title:"Админ", active:"comps" }); renderNotConfigured(); }
+else {
+  const p = await requireAuth();
+  if (p) {
+    mountChrome({ title: "Админ", active: "comps", back: "competitions.html", profile: p });
+
+    if (!p.is_admin) {
+      $("#root").innerHTML = `
+        <div class="empty">
+          <h3>Тук нямаш достъп</h3>
+          <p class="muted">Този екран е само за админи.</p>
+          <p class="tiny" style="margin-top:14px">Ако това си ти: Supabase → Table Editor →
+          <code>profiles</code> → намери своя ред → сложи <code>is_admin = true</code>.</p>
+        </div>`;
+    } else {
+      await render();
+    }
+
+    async function render() {
+      const { data: comps } = await sb.from("competitions").select("*").order("starts_on");
+
+      $("#root").innerHTML = `
+        <div class="msg on info">Всичко, което въведеш тук, се вижда веднага от всички.
+        Проверявай датите два пъти — грешна дата е по-лошо от липсващо състезание.</div>
+
+        <div class="eyebrow">Ново състезание</div>
+        <div class="card">
+          <div class="field"><label for="name">Име *</label><input id="name" maxlength="90" placeholder="напр. BFFC Финали 2027"></div>
+          <div class="grid2">
+            <div class="field"><label for="starts">Начало *</label><input type="date" id="starts"></div>
+            <div class="field"><label for="ends">Край</label><input type="date" id="ends"></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label for="city">Град *</label><input id="city" maxlength="60" placeholder="Пловдив"></div>
+            <div class="field"><label for="country">Държава</label><input id="country" maxlength="60" value="България"></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label for="dist">Км от София</label><input type="number" id="dist" inputmode="numeric"></div>
+            <div class="field"><label for="fee">Такса</label><input id="fee" maxlength="40" placeholder="120 лв / отбор"></div>
+          </div>
+          <div class="field"><label for="format">Формат</label><input id="format" maxlength="60" placeholder="Отбори от 3 (микс)"></div>
+          <div class="field"><label for="div">Дивизии</label><input id="div" maxlength="90" placeholder="RX · Scaled · Masters 35+"></div>
+          <div class="field"><label for="deadline">Регистрация до</label><input type="date" id="deadline"></div>
+          <div class="field"><label for="url">Линк към регистрацията</label><input id="url" maxlength="300" placeholder="https://…"></div>
+          <div class="field"><label for="org">Организатор</label><input id="org" maxlength="90" placeholder="BFFA"></div>
+          <div class="field"><label for="notes">Бележки</label><textarea id="notes" maxlength="600" placeholder="Каквото атлетът трябва да знае"></textarea></div>
+          <div class="msg" id="msg"></div>
+          <button class="btn" id="save">Добави</button>
+        </div>
+
+        <div class="eyebrow">Въведени (${(comps || []).length})</div>
+        ${(comps || []).length ? comps.map(c => `
+          <div class="card">
+            <div class="ath">
+              <div style="min-width:0;flex:1">
+                <div class="nm">${esc(c.name)}</div>
+                <div class="sub">${esc(dateRange(c.starts_on, c.ends_on))} · ${esc(c.city)}</div>
+              </div>
+              <button class="btn sm dg" style="width:auto;padding:8px 12px" data-del="${c.id}">Изтрий</button>
+            </div>
+          </div>`).join("")
+          : `<div class="empty"><p class="muted">Още нищо. Първото състезание, което въведеш,
+             ще е първото в България, което стои на едно място.</p></div>`}
+      `;
+
+      $("#save").addEventListener("click", async () => {
+        const btn = $("#save"); hide($("#msg"));
+        const name = $("#name").value.trim(), starts = $("#starts").value, city = $("#city").value.trim();
+        if (!name || !starts || !city) return show($("#msg"), "Име, начална дата и град са задължителни.", "err");
+        if ($("#ends").value && $("#ends").value < starts) return show($("#msg"), "Краят е преди началото.", "err");
+        if ($("#deadline").value && $("#deadline").value > starts) return show($("#msg"), "Регистрацията изтича след старта — сигурна ли си?", "err");
+
+        btn.disabled = true; btn.textContent = "Добавяме…";
+        const { error } = await sb.from("competitions").insert({
+          name, starts_on: starts,
+          ends_on: $("#ends").value || null,
+          city, country: $("#country").value.trim() || "България",
+          distance_km: $("#dist").value ? Number($("#dist").value) : null,
+          format: $("#format").value.trim() || null,
+          divisions: $("#div").value.trim() || null,
+          fee: $("#fee").value.trim() || null,
+          registration_deadline: $("#deadline").value || null,
+          registration_url: $("#url").value.trim() || null,
+          organiser: $("#org").value.trim() || null,
+          notes: $("#notes").value.trim() || null,
+        });
+        btn.disabled = false; btn.textContent = "Добави";
+        if (error) { console.error(error); show($("#msg"), "Не се записа. Провери дали си админ.", "err"); }
+        else await render();
+      });
+
+      document.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+        b.disabled = true; b.textContent = "…";
+        await sb.from("competitions").delete().eq("id", Number(b.dataset.del));
+        await render();
+      }));
+    }
+  }
+}
+</script>
+</body>
+</html>

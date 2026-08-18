@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Влез — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  body{padding-bottom:0;justify-content:center}
+  .mk{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+  .mk svg{width:44px;height:44px}
+  .mk b{font-family:var(--display);font-size:30px;text-transform:uppercase;letter-spacing:.1em}
+  .mk small{display:block;color:var(--ember);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;font-weight:700}
+  h2{font-size:24px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<main>
+  <div class="wrap" style="max-width:440px">
+    <div class="mk">
+      <svg viewBox="0 0 44 44" fill="none" stroke="#F1FF00" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 19 L22 7 L36 19" stroke-width="4.6"/>
+        <path d="M3 34 L10 27 L17 34" stroke-width="3.6" opacity=".5"/>
+        <path d="M27 34 L34 27 L41 34" stroke-width="3.6" opacity=".5"/>
+      </svg>
+      <div><b>Ято</b><small>Не отиваш сам</small></div>
+    </div>
+
+    <h2>Влез с имейл</h2>
+    <p class="muted" style="margin-bottom:20px">Няма пароли. Пращаме ти линк на имейла — натискаш го и си вътре.</p>
+
+    <form id="f" novalidate>
+      <div class="field">
+        <label for="email">Имейл</label>
+        <input type="email" id="email" placeholder="ime@example.com" required autocomplete="email" inputmode="email">
+      </div>
+      <button class="btn" id="go" type="submit">Прати ми линк</button>
+    </form>
+
+    <div class="msg" id="msg"></div>
+
+    <p class="tiny" style="margin-top:22px">
+      Като влезеш, се съгласяваш профилът ти (име, град, зала, ниво) да е видим за
+      другите вписани атлети — това е нужно, за да те намерят за отбор.
+      Имейлът ти не се показва на никого.
+    </p>
+  </div>
+</main>
+
+<script type="module">
+import { sb, configured, $, show, renderNotConfigured } from "./app.js";
+
+const msg = $("#msg"), btn = $("#go"), form = $("#f");
+
+if (!configured) {
+  renderNotConfigured();
+} else {
+  // Ако вече е вписан — направо навътре.
+  const { data } = await sb.auth.getUser();
+  if (data?.user) location.replace(next());
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("#email").value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      return show(msg, "Провери имейла — нещо не е наред с него.", "err");
+    }
+    btn.disabled = true; btn.textContent = "Пращаме…";
+    const redirect = new URL(next(), location.href).href;
+    const { error } = await sb.auth.signInWithOtp({
+      email, options: { emailRedirectTo: redirect }
+    });
+    btn.disabled = false; btn.textContent = "Прати ми линк";
+    if (error) {
+      show(msg, "Не успяхме да пратим линка. Пробвай пак след минута.", "err");
+      console.error(error);
+    } else {
+      show(msg, "Готово — виж пощата си. Линкът е валиден един час. Ако го няма, провери и в спам.", "ok");
+      form.style.display = "none";
+    }
+  });
+}
+
+function next() {
+  const n = new URLSearchParams(location.search).get("next");
+  return n && /^[a-z0-9._-]+\.html/i.test(n) ? n : "index.html";
+}
+</script>
+</body>
+</html>

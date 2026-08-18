@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .next{position:relative;border-radius:20px;padding:20px;border:1px solid rgba(241,255,0,.28);
+    background:linear-gradient(150deg,rgba(241,255,0,.20),rgba(241,255,0,.03) 56%,transparent),var(--charcoal);margin-bottom:6px}
+  .next .cd{font-family:var(--display);font-size:52px;line-height:.9;font-weight:700;margin:10px 0 2px}
+  .next .cd small{font-size:14px;color:var(--steel);font-weight:500;margin-left:7px}
+  .mini{display:flex;gap:8px;margin-top:14px}
+  .mini div{flex:1;background:rgba(0,0,0,.32);border:1px solid var(--graphite);border-radius:11px;padding:9px 10px}
+  .mini b{font-family:var(--display);font-size:17px;display:block;line-height:1.15}
+  .mini span{font-size:9.5px;color:var(--ash);text-transform:uppercase;letter-spacing:.08em}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+<main><div class="wrap" id="root"><div class="skeleton" style="height:170px"></div><div class="skeleton"></div></div></main>
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, dayNum, monthShort,
+         dateRange, daysUntil, renderNotConfigured, profileNudge } from "./app.js";
+
+if (!configured) { mountChrome({ title:"ЯТО", active:"home" }); renderNotConfigured(); }
+else {
+  const profile = await requireAuth();
+  if (profile) {
+    const first = (profile.name || "").split(" ")[0];
+    mountChrome({ title: first ? `Здравей, ${first}` : "Здравей", active: "home", profile });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: mine } = await sb
+      .from("attendances")
+      .select("*, competitions(*)")
+      .eq("profile_id", profile.id);
+
+    const upcoming = (mine || [])
+      .filter(a => a.competitions && (a.competitions.ends_on || a.competitions.starts_on) >= today)
+      .sort((a, b) => a.competitions.starts_on.localeCompare(b.competitions.starts_on));
+
+    const next = upcoming[0];
+    let html = profileNudge(profile);
+
+    if (next) {
+      const c = next.competitions;
+      const d = daysUntil(c.starts_on);
+      const [{ count: goingCount }, { data: mySeat }] = await Promise.all([
+        sb.from("attendances").select("*", { count: "exact", head: true }).eq("competition_id", c.id),
+        sb.from("ride_seats").select("ride_id, rides!inner(competition_id)").eq("profile_id", profile.id),
+      ]);
+      const hasRide = (mySeat || []).some(s => s.rides?.competition_id === c.id);
+
+      html += `
+        <a class="next" href="competition.html?id=${c.id}" style="display:block;text-decoration:none">
+          <span class="pill em">Следващото ти</span>
+          <div class="cd tnum">${d}<small>${d === 1 ? "ден" : "дни"}</small></div>
+          <div class="d" style="font-size:17px">${esc(c.name)}</div>
+          <div class="muted" style="margin-top:3px">${esc(dateRange(c.starts_on, c.ends_on))} · ${esc(c.city)}</div>
+          <div class="mini">
+            <div><b>${goingCount ?? 0}</b><span>Отиват</span></div>
+            <div><b style="color:${next.looking_for_team ? "var(--warn)" : "var(--ready)"}">${next.looking_for_team ? "?" : "✓"}</b><span>Отбор</span></div>
+            <div><b style="color:${hasRide ? "var(--ready)" : "var(--warn)"}">${hasRide ? "✓" : "?"}</b><span>Транспорт</span></div>
+          </div>
+        </a>`;
+    }
+
+    const { data: soon } = await sb.from("competitions").select("*")
+      .gte("starts_on", today).order("starts_on").limit(4);
+
+    const mineIds = new Set(upcoming.map(a => a.competitions.id));
+    const other = (soon || []).filter(c => !mineIds.has(c.id));
+
+    if (!next && !other.length) {
+      html += `<div class="empty"><h3>Календарът е празен</h3>
+        <p class="muted">Още няма въведени състезания. ${profile.is_admin
+          ? `<a href="admin.html" style="color:var(--ember)">Добави първото →</a>`
+          : "Скоро ще има."}</p></div>`;
+    }
+
+    if (other.length) {
+      html += `<div class="eyebrow">Предстоящи <a href="competitions.html" style="color:var(--ember);text-decoration:none">Всички</a></div>`;
+      html += other.map(c => `
+        <a class="card" href="competition.html?id=${c.id}">
+          <div class="comp">
+            <div class="date"><b class="tnum">${dayNum(c.starts_on)}</b><span>${monthShort(c.starts_on)}</span></div>
+            <div style="flex:1;min-width:0">
+              <div class="nm">${esc(c.name)}</div>
+              <div class="muted" style="margin-top:2px">${esc(c.city)}${c.country !== "България" ? ", " + esc(c.country) : ""}</div>
+            </div>
+          </div>
+        </a>`).join("");
+    }
+
+    if (upcoming.length > 1) {
+      html += `<div class="eyebrow">Другите ти състезания</div>`;
+      html += upcoming.slice(1).map(a => {
+        const c = a.competitions;
+        return `<a class="card" href="competition.html?id=${c.id}">
+          <div class="comp">
+            <div class="date"><b class="tnum">${dayNum(c.starts_on)}</b><span>${monthShort(c.starts_on)}</span></div>
+            <div style="flex:1;min-width:0">
+              <div class="nm">${esc(c.name)}</div>
+              <div class="muted" style="margin-top:2px">${esc(c.city)}</div>
+            </div>
+          </div>
+        </a>`;
+      }).join("");
+    }
+
+    if (profile.is_admin) {
+      html += `<a class="btn ghost sm" href="admin.html" style="margin-top:16px">+ Добави състезание</a>`;
+    }
+
+    $("#root").innerHTML = html;
+  }
+}
+</script>
+</body>
+</html>

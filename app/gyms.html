@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Зали — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .filters{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .f{flex:none;padding:7px 13px;border-radius:100px;background:var(--charcoal);border:1px solid var(--graphite);
+     color:var(--steel);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .f.on{background:var(--ember);border-color:var(--ember);color:#101214}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+<main><div class="wrap">
+  <div class="filters" id="filters"></div>
+  <div id="list"><div class="skeleton"></div><div class="skeleton"></div></div>
+</div></main>
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, renderNotConfigured } from "./app.js";
+
+/** Кратък знак за зала: "CrossFit 681" -> "681", "CF Gravity" -> "GRA" */
+const gymBadge = (name) => {
+  const core = String(name).replace(/^(crossfit|cf)\s*/i, "").trim() || name;
+  return core.slice(0, 3).toUpperCase();
+};
+
+if (!configured) { mountChrome({ title:"Зали", active:"gyms" }); renderNotConfigured(); }
+else {
+  const profile = await requireAuth();
+  if (profile) {
+    mountChrome({ title: "Зали", active: "gyms", profile });
+
+    const { data: gyms, error } = await sb.from("gyms").select("*").order("city").order("name");
+    if (error) {
+      $("#list").innerHTML = `<div class="msg on err">Не успяхме да заредим залите.</div>`;
+    } else {
+      const cities = [...new Set((gyms || []).map(g => g.city))];
+      $("#filters").innerHTML = [`<button class="f on" data-c="">Всички</button>`]
+        .concat(cities.map(c => `<button class="f" data-c="${esc(c)}">${esc(c)}</button>`)).join("");
+
+      const render = (city) => {
+        const rows = (gyms || []).filter(g => !city || g.city === city);
+        if (!rows.length) {
+          $("#list").innerHTML = `<div class="empty"><h3>Няма зали тук</h3></div>`;
+          return;
+        }
+        $("#list").innerHTML = rows.map(g => `
+          <div class="card">
+            <div class="ath">
+              <div class="ava ${g.is_affiliate ? "y" : ""}">${esc(gymBadge(g.name))}</div>
+              <div style="min-width:0">
+                <div class="nm">${esc(g.name)}</div>
+                <div class="sub">${esc(g.city)}${g.country !== "България" ? ", " + esc(g.country) : ""}</div>
+              </div>
+            </div>
+            <div class="chips">
+              ${g.is_affiliate ? `<span class="pill em">Официален афилиат</span>` : ""}
+              ${g.dropin_price ? `<span class="pill ok">Drop-in ${esc(g.dropin_price)}</span>` : ""}
+            </div>
+            ${g.notes ? `<div class="muted" style="margin-top:10px">${esc(g.notes)}</div>` : ""}
+            ${g.website ? `<a class="btn sm ghost" style="margin-top:11px" target="_blank" rel="noopener" href="${esc(g.website)}">Сайт ↗</a>` : ""}
+          </div>`).join("")
+          + `<p class="tiny" style="margin-top:14px">Списъкът тръгва от петте официални CrossFit афилиата в България.
+             Липсва твоята зала? Кажи и я добавяме.</p>`;
+      };
+
+      render("");
+      $("#filters").addEventListener("click", (e) => {
+        const b = e.target.closest(".f"); if (!b) return;
+        $("#filters").querySelectorAll(".f").forEach(x => x.classList.remove("on"));
+        b.classList.add("on");
+        render(b.dataset.c);
+      });
+    }
+  }
+}
+</script>
+</body>
+</html>

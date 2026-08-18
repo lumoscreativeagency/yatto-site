@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Профил — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+<main><div class="wrap" id="root"><div class="skeleton" style="height:120px"></div><div class="skeleton"></div></div></main>
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, initials, igHandle,
+         show, hide, signOut, renderNotConfigured } from "./app.js";
+
+if (!configured) { mountChrome({ title:"Профил", active:"me" }); renderNotConfigured(); }
+else {
+  const p = await requireAuth();
+  if (p) {
+    mountChrome({ title: "Профил", active: "me", profile: p });
+
+    const opt = (v, cur) => `<option ${v === (cur || "") ? "selected" : ""}>${esc(v)}</option>`;
+    const val = (v) => v ?? "";
+
+    $("#root").innerHTML = `
+      <div class="card" style="text-align:center;background:linear-gradient(150deg,rgba(241,255,0,.10),transparent 60%),var(--charcoal)">
+        <div class="ava y" style="width:72px;height:72px;border-radius:50%;font-size:24px;margin:4px auto 12px">${esc(initials(p.name || p.email))}</div>
+        <div class="d" style="font-size:20px">${esc(p.name || "Без име")}</div>
+        <div class="muted">${esc(p.email || "")}</div>
+        ${p.is_admin ? `<span class="pill em" style="margin-top:9px">Админ</span>` : ""}
+      </div>
+
+      <div class="msg" id="msg"></div>
+
+      <div class="eyebrow">Кой си</div>
+      <div class="card">
+        <div class="field"><label for="name">Име</label><input id="name" maxlength="60" value="${esc(val(p.name))}" placeholder="Име и фамилия"></div>
+        <div class="grid2">
+          <div class="field"><label for="city">Град</label>
+            <select id="city">${["", "София","Пловдив","Варна","Бургас","Русе","Стара Загора","Друг в България","В чужбина"].map(v => opt(v, p.city)).join("")}</select></div>
+          <div class="field"><label for="division">Дивизия</label>
+            <select id="division">${["", "RX","Scaled","Masters 35+","Не се състезавам още"].map(v => opt(v, p.division)).join("")}</select></div>
+        </div>
+        <div class="field"><label for="gym">Зала</label><input id="gym" maxlength="60" value="${esc(val(p.gym))}" placeholder="напр. CrossFit 681"></div>
+        <div class="field">
+          <label for="instagram">Instagram</label>
+          <input id="instagram" maxlength="60" value="${esc(val(p.instagram))}" placeholder="@potrebitel">
+          <p class="tiny" style="margin-top:6px">Това е единственият начин някой да се свърже с теб.
+          Чат в приложението няма нарочно — така никой не пази съобщенията ти и няма кой да ти спами.</p>
+        </div>
+        <div class="field"><label for="bio">За теб (по избор)</label><textarea id="bio" maxlength="280" placeholder="Какво търсиш, какво ти е силното">${esc(val(p.bio))}</textarea></div>
+      </div>
+
+      <div class="eyebrow">Профил на силата</div>
+      <div class="card">
+        <p class="tiny" style="margin-bottom:14px">По тези числа те свързваме с хора на твоето ниво.
+        Дръж ги честни — 60% съвпадение боли повече на състезанието, отколкото в приложението.</p>
+        <div class="grid2">
+          <div class="field"><label for="snatch">Snatch (кг)</label><input type="number" inputmode="decimal" id="snatch" value="${esc(val(p.snatch_kg))}"></div>
+          <div class="field"><label for="cj">Clean &amp; Jerk (кг)</label><input type="number" inputmode="decimal" id="cj" value="${esc(val(p.clean_jerk_kg))}"></div>
+          <div class="field"><label for="bs">Back squat (кг)</label><input type="number" inputmode="decimal" id="bs" value="${esc(val(p.back_squat_kg))}"></div>
+          <div class="field"><label for="pu">Строги набирания</label><input type="number" inputmode="numeric" id="pu" value="${esc(val(p.strict_pullups))}"></div>
+        </div>
+        <div class="field"><label for="fran">Fran (мм:сс)</label><input id="fran" placeholder="3:24" value="${p.fran_seconds ? Math.floor(p.fran_seconds/60) + ":" + String(p.fran_seconds%60).padStart(2,"0") : ""}"></div>
+      </div>
+
+      <button class="btn" id="save">Запази</button>
+      <button class="btn ghost" id="out" style="margin-top:10px">Излез</button>
+
+      <p class="tiny" style="margin:18px 0 4px">Профилът ти (без имейла) се вижда от другите вписани атлети.
+      Това е нужно, за да те намерят за отбор.</p>
+    `;
+
+    $("#save").addEventListener("click", async () => {
+      const btn = $("#save"); btn.disabled = true; btn.textContent = "Записваме…"; hide($("#msg"));
+
+      const num = (id) => { const v = $(id).value.trim(); return v === "" ? null : Number(v); };
+      const fran = (() => {
+        const v = $("#fran").value.trim();
+        if (!v) return null;
+        const m = v.match(/^(\d+):([0-5]\d)$/);
+        return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+      })();
+
+      if ($("#fran").value.trim() && fran === null) {
+        btn.disabled = false; btn.textContent = "Запази";
+        return show($("#msg"), "Fran се пише като 3:24 — минути двоеточие секунди.", "err");
+      }
+
+      const patch = {
+        name: $("#name").value.trim() || null,
+        city: $("#city").value || null,
+        division: $("#division").value || null,
+        gym: $("#gym").value.trim() || null,
+        instagram: igHandle($("#instagram").value) || null,
+        bio: $("#bio").value.trim() || null,
+        snatch_kg: num("#snatch"), clean_jerk_kg: num("#cj"),
+        back_squat_kg: num("#bs"), strict_pullups: num("#pu"),
+        fran_seconds: fran,
+      };
+
+      const { error } = await sb.from("profiles").update(patch).eq("id", p.id);
+      btn.disabled = false; btn.textContent = "Запази";
+      if (error) { console.error(error); show($("#msg"), "Не се записа. Пробвай пак.", "err"); }
+      else { show($("#msg"), "Записано.", "ok"); setTimeout(() => location.reload(), 700); }
+    });
+
+    $("#out").addEventListener("click", signOut);
+  }
+}
+</script>
+</body>
+</html>

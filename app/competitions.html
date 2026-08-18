@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Състезания — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .filters{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .f{flex:none;padding:7px 13px;border-radius:100px;background:var(--charcoal);border:1px solid var(--graphite);
+     color:var(--steel);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .f.on{background:var(--ember);border-color:var(--ember);color:#101214}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+
+<main><div class="wrap">
+  <div class="filters" id="filters">
+    <button class="f on" data-k="all">Всички</button>
+    <button class="f" data-k="bg">България</button>
+    <button class="f" data-k="abroad">В чужбина</button>
+    <button class="f" data-k="mine">Отивам</button>
+  </div>
+  <div id="list">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </div>
+</div></main>
+
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, dayNum, monthShort,
+         dateRange, daysUntil, renderNotConfigured, profileNudge } from "./app.js";
+
+if (!configured) { mountChrome({ title:"Състезания", active:"comps" }); renderNotConfigured(); }
+else {
+  const profile = await requireAuth();
+  if (profile) {
+    mountChrome({ title: "Състезания", active: "comps", profile });
+
+    const [{ data: comps, error }, { data: mine }, { data: counts }] = await Promise.all([
+      sb.from("competitions").select("*").order("starts_on", { ascending: true }),
+      sb.from("attendances").select("competition_id, looking_for_team").eq("profile_id", profile.id),
+      sb.from("attendances").select("competition_id, profile_id"),
+    ]);
+
+    if (error) {
+      $("#list").innerHTML = `<div class="msg on err">Не успяхме да заредим състезанията. Презареди страницата.</div>`;
+      console.error(error);
+    } else {
+      const mineSet = new Set((mine || []).map(a => a.competition_id));
+      const tally = {}, looking = {};
+      (counts || []).forEach(a => { tally[a.competition_id] = (tally[a.competition_id] || 0) + 1; });
+      (await sb.from("attendances").select("competition_id").eq("looking_for_team", true)).data
+        ?.forEach(a => { looking[a.competition_id] = (looking[a.competition_id] || 0) + 1; });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const upcoming = (comps || []).filter(c => (c.ends_on || c.starts_on) >= today);
+
+      const render = (key) => {
+        let rows = upcoming;
+        if (key === "bg") rows = rows.filter(c => c.country === "България");
+        if (key === "abroad") rows = rows.filter(c => c.country !== "България");
+        if (key === "mine") rows = rows.filter(c => mineSet.has(c.id));
+
+        if (!rows.length) {
+          $("#list").innerHTML = profileNudge(profile) + `
+            <div class="empty">
+              <h3>Още нищо тук</h3>
+              <p class="muted">${key === "mine"
+                ? "Не си се записала за нищо. Отвори състезание и натисни „Отивам”."
+                : "Календарът се пълни на ръка. Ако знаеш състезание, което липсва — кажи."}</p>
+            </div>`;
+          return;
+        }
+
+        $("#list").innerHTML = profileNudge(profile) + rows.map(c => {
+          const d = daysUntil(c.starts_on);
+          const deadline = daysUntil(c.registration_deadline);
+          const going = tally[c.id] || 0, look = looking[c.id] || 0;
+          return `
+          <a class="card" href="competition.html?id=${c.id}">
+            <div class="comp">
+              <div class="date"><b class="tnum">${dayNum(c.starts_on)}</b><span>${monthShort(c.starts_on)}</span></div>
+              <div style="flex:1;min-width:0">
+                <div class="nm">${esc(c.name)}</div>
+                <div class="muted" style="margin-top:2px">
+                  ${esc(c.city)}${c.country !== "България" ? ", " + esc(c.country) : ""}${c.distance_km ? " · " + c.distance_km + " км" : ""}
+                </div>
+                <div class="chips">
+                  ${mineSet.has(c.id) ? `<span class="pill em">Отиваш</span>` : ""}
+                  ${deadline !== null && deadline >= 0 && deadline <= 14
+                    ? `<span class="pill wn">Регистрация −${deadline} дни</span>` : ""}
+                  ${c.format ? `<span class="pill">${esc(c.format)}</span>` : ""}
+                  ${look ? `<span class="pill ok">${look} търсят отбор</span>` : ""}
+                  ${d !== null && d <= 30 ? `<span class="pill">След ${d} дни</span>` : ""}
+                </div>
+                ${going ? `<div class="tiny" style="margin-top:9px">${going} ${going === 1 ? "човек отива" : "души отиват"}</div>` : ""}
+              </div>
+            </div>
+          </a>`;
+        }).join("");
+      };
+
+      render("all");
+      $("#filters").addEventListener("click", (e) => {
+        const b = e.target.closest(".f"); if (!b) return;
+        $("#filters").querySelectorAll(".f").forEach(x => x.classList.remove("on"));
+        b.classList.add("on");
+        render(b.dataset.k);
+      });
+
+      if (profile.is_admin) {
+        $("#list").insertAdjacentHTML("beforebegin",
+          `<a class="btn ghost sm" href="admin.html" style="margin-bottom:12px">+ Добави състезание</a>`);
+      }
+    }
+  }
+}
+</script>
+</body>
+</html>
