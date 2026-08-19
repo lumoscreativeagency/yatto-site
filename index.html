@@ -19,121 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<style>
-:root{
-  --obsidian:#101214; --charcoal:#1A1D21; --graphite:#2A2D31; --graphite2:#3B3E43;
-  --ember:#F1FF00; --ember-soft:#FBB03B; --chalk:#FFFFFF; --steel:#A9A9AB; --ash:#79797B;
-  --ready:#34D399; --warn:#FBB03B; --danger:#FF3B5C; --data:#C9C9CB;
-  --display:'Unbounded','Arial Black','DejaVu Sans',system-ui,sans-serif;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
-body{
-  font-family:'Inter',system-ui,-apple-system,sans-serif;color:var(--chalk);
-  background:var(--obsidian);line-height:1.6;overflow-x:hidden;
-}
-h1,h2,h3,.d{font-family:var(--display);text-transform:uppercase;letter-spacing:.02em;font-weight:600;line-height:1.02}
-a{color:inherit}
-.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
-.narrow{max-width:720px;margin:0 auto}
-section{padding:76px 0;position:relative}
-
-/* ---------- nav ---------- */
-nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);background:rgba(16,18,20,.85);border-bottom:1px solid rgba(42,45,49,.8)}
-nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:13px;padding-bottom:13px}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
-.brand svg{width:32px;height:32px;flex:none}
-.brand b{font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
-.navcta{background:var(--ember);color:#101214;text-decoration:none;font-family:var(--display);font-size:13px;text-transform:uppercase;letter-spacing:.07em;padding:9px 16px;border-radius:10px;font-weight:600;white-space:nowrap}
-
-/* ---------- hero ---------- */
-.hero{
-  padding:64px 0 72px;
-  background:
-    radial-gradient(760px 520px at 12% -10%, rgba(241,255,0,.24), transparent 62%),
-    radial-gradient(620px 460px at 96% 8%, rgba(251,176,59,.10), transparent 60%);
-}
-.hero .kicker{color:var(--ember);font-family:var(--display);font-size:12.5px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:18px}
-.hero h1{font-size:clamp(46px,10.5vw,92px);margin-bottom:20px}
-.hero h1 em{font-style:normal;color:var(--ember);display:block}
-.lede{font-size:clamp(17px,2.4vw,21px);color:var(--steel);max-width:600px;margin-bottom:14px}
-.lede b{color:var(--chalk);font-weight:600}
-.hero .sub{color:var(--ash);font-size:15px;max-width:560px;margin-bottom:32px}
-
-/* ---------- form ---------- */
-.form{background:var(--charcoal);border:1px solid var(--graphite);border-radius:20px;padding:22px;max-width:520px}
-.form h3{font-size:20px;margin-bottom:6px}
-.form .fine{color:var(--ash);font-size:12.5px;line-height:1.5;margin-bottom:16px}
-.field{margin-bottom:10px}
-.field label{display:block;font-size:12px;color:var(--steel);font-weight:600;margin-bottom:6px}
-input,select,textarea{
-  width:100%;background:var(--obsidian);border:1px solid var(--graphite2);color:var(--chalk);
-  border-radius:12px;padding:13px 14px;font-family:inherit;font-size:15px;outline:none;transition:border-color .18s;
-}
-input:focus,select:focus,textarea:focus{border-color:var(--ember)}
-input::placeholder,textarea::placeholder{color:var(--ash)}
-select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A9A9AB' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:40px}
-textarea{resize:vertical;min-height:76px;line-height:1.5}
-.btn{
-  width:100%;background:var(--ember);color:#101214;border:0;border-radius:13px;padding:16px;
-  font-family:var(--display);font-size:16px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;
-  cursor:pointer;transition:filter .15s,transform .12s;margin-top:6px;
-}
-.btn:hover{filter:brightness(1.09)} .btn:active{transform:scale(.985)}
-.btn[disabled]{opacity:.55;cursor:wait}
-.more{background:none;border:0;color:var(--steel);font-size:13px;font-weight:600;cursor:pointer;padding:8px 0;font-family:inherit;text-decoration:underline;text-underline-offset:3px}
-.msg{display:none;border-radius:13px;padding:14px;font-size:14px;line-height:1.55;margin-top:12px}
-.msg.ok{display:block;background:rgba(52,211,153,.11);border:1px solid rgba(52,211,153,.32);color:var(--ready)}
-.msg.err{display:block;background:rgba(255,59,92,.10);border:1px solid rgba(255,59,92,.32);color:#FDA4AF}
-
-/* ---------- generic blocks ---------- */
-.eye{font-family:var(--display);font-size:12px;letter-spacing:.2em;color:var(--ember);text-transform:uppercase;margin-bottom:14px}
-h2{font-size:clamp(30px,5.6vw,46px);margin-bottom:18px}
-.grid{display:grid;gap:14px;margin-top:30px}
-@media(min-width:760px){.grid.g3{grid-template-columns:repeat(3,1fr)}.grid.g2{grid-template-columns:repeat(2,1fr)}}
-.card{background:var(--charcoal);border:1px solid var(--graphite);border-radius:18px;padding:24px}
-.card .n{font-family:var(--display);font-size:13px;color:var(--ember);letter-spacing:.14em;margin-bottom:12px}
-.card h3{font-size:21px;margin-bottom:9px}
-.card p{color:var(--steel);font-size:14.5px}
-
-/* problem list */
-.plist{margin-top:26px}
-.pitem{display:flex;gap:16px;padding:20px 0;border-bottom:1px solid var(--graphite)}
-.pitem:last-child{border:0}
-.pitem .ic{font-size:24px;flex:none;width:34px;text-align:center;line-height:1.3}
-.pitem h3{font-size:19px;margin-bottom:5px}
-.pitem p{color:var(--steel);font-size:14.5px}
-
-/* founders */
-.fgrid{display:grid;gap:14px;margin-top:30px}
-@media(min-width:760px){.fgrid{grid-template-columns:repeat(3,1fr)}}
-.f{background:var(--charcoal);border:1px solid var(--graphite);border-radius:18px;padding:24px;text-align:center}
-.f .av{width:74px;height:74px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:28px;color:#fff}
-.f h3{font-size:20px;margin-bottom:3px}
-.f .role{color:var(--ember);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-.f p{color:var(--steel);font-size:14px}
-
-/* honest */
-.honest{background:linear-gradient(160deg,rgba(241,255,0,.09),transparent 65%),var(--charcoal);border:1px solid rgba(241,255,0,.25);border-radius:20px;padding:28px}
-.honest h2{font-size:clamp(25px,4.6vw,34px)}
-.honest ul{list-style:none;margin-top:18px}
-.honest li{display:flex;gap:12px;padding:9px 0;font-size:15px;color:var(--steel);align-items:flex-start}
-.honest li b{color:var(--chalk);font-weight:600}
-.honest li span{flex:none;font-size:15px;line-height:1.5}
-
-/* cta */
-.cta{background:
-  radial-gradient(680px 420px at 50% 120%, rgba(241,255,0,.22), transparent 62%);
-  text-align:center;padding-bottom:90px}
-.cta h2{margin-bottom:14px}
-.cta p{color:var(--steel);max-width:520px;margin:0 auto 28px}
-.cta .form{margin:0 auto;text-align:left}
-
-footer{border-top:1px solid var(--graphite);padding:34px 0;color:var(--ash);font-size:13px}
-footer .wrap{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
-footer a{color:var(--steel);text-decoration:none;margin-right:16px}
-footer a:hover{color:var(--ember)}
-</style>
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
 
@@ -147,7 +33,11 @@ footer a:hover{color:var(--ember)}
       </svg>
       <b>Ято</b>
     </a>
-    <a class="navcta" href="#zapisvane">Запиши се</a>
+    <div class="navlinks">
+      <a href="sastezaniya.html">Състезания</a>
+      <a href="zali.html">Зали</a>
+      <a class="navcta" href="app/">Влез</a>
+    </div>
   </div>
 </nav>
 
@@ -243,7 +133,7 @@ footer a:hover{color:var(--ember)}
     <h2>Правим го, защото сме го изживели</h2>
     <p class="lede" style="font-size:16px">Всяка от нас е търсила трети човек за отбор две седмици преди старта. Всяка е карала сама до състезание в чужбина.</p>
     <div class="fgrid">
-      <div class="f"><div class="av" style="background:linear-gradient(135deg,#F1FF00,#B0300A)">М</div><h3>Маша</h3><div class="role">Продукт</div><p>Строи приложението и решава какво влиза в него.</p></div>
+      <div class="f"><div class="av" style="background:linear-gradient(135deg,#F1FF00,#C8D400);color:#101214">М</div><h3>Маша</h3><div class="role">Продукт</div><p>Строи приложението и решава какво влиза в него.</p></div>
       <div class="f"><div class="av" style="background:linear-gradient(135deg,#FBB03B,#99582A)">В</div><h3>Ванеса</h3><div class="role">Съосновател</div><p>Състезаващ се атлет. Отговаря за това продуктът да е верен на спорта.</p></div>
       <div class="f"><div class="av" style="background:linear-gradient(135deg,#99582A,#42210B)">М</div><h3>Марина</h3><div class="role">Съосновател</div><p>Състезаващ се атлет. Отговаря за общността и за хората в нея.</p></div>
     </div>
@@ -296,11 +186,17 @@ footer a:hover{color:var(--ember)}
 
 <footer>
   <div class="wrap">
-    <div>© 2026 ЯТО · Направено в България</div>
-    <div>
+    <div class="fnav">
+      <a href="index.html">Начало</a>
+      <a href="sastezaniya.html">Състезания</a>
+      <a href="zali.html">Зали</a>
+      <a href="app/">Влез в приложението</a>
+    </div>
+    <div class="fnav">
       <a href="https://instagram.com/" target="_blank" rel="noopener">Instagram</a>
       <a href="mailto:zdravei@yatto.app">Пиши ни</a>
     </div>
+    <div class="fbottom">© 2026 ЯТО · Направено в България</div>
   </div>
 </footer>
 

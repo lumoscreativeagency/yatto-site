@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Състезания по функционален фитнес в България и на Балканите — ЯТО</title>
+<meta name="description" content="Календар на състезанията по функционален фитнес и CrossFit в България, на Балканите и в Европа. Дати, дивизии, такси и крайни срокове за регистрация.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Състезания по функционален фитнес — ЯТО">
+<meta property="og:description" content="Календар на състезанията в България и на Балканите. Дати, дивизии, такси, крайни срокове.">
+<meta property="og:image" content="og.png">
+<meta property="og:locale" content="bg_BG">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg viewBox="0 0 44 44" fill="none" stroke="#F1FF00" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 19 L22 7 L36 19" stroke-width="4.6"/>
+        <path d="M3 34 L10 27 L17 34" stroke-width="3.6" opacity=".5"/>
+        <path d="M27 34 L34 27 L41 34" stroke-width="3.6" opacity=".5"/>
+      </svg>
+      <b>Ято</b>
+    </a>
+    <div class="navlinks">
+      <a href="sastezaniya.html">Състезания</a>
+      <a href="zali.html">Зали</a>
+      <a class="navcta" href="app/">Влез</a>
+    </div>
+  </div>
+</nav>
+
+<header class="pagehead">
+  <div class="wrap">
+    <div class="eye">Календар</div>
+    <h1>Състезания</h1>
+    <p>България, Балканите и големите европейски. Дати, дивизии, такси и крайни срокове —
+    на едно място, защото другаде такъв списък няма.</p>
+  </div>
+</header>
+
+<section style="padding-top:20px">
+  <div class="wrap">
+    <div class="filters" id="filters">
+      <button class="fbtn on" data-k="all">Всички</button>
+      <button class="fbtn" data-k="bg">България</button>
+      <button class="fbtn" data-k="abroad">В чужбина</button>
+      <button class="fbtn" data-k="soon">Скоро изтича регистрация</button>
+    </div>
+    <div id="list">
+      <div class="loading"></div><div class="loading"></div><div class="loading"></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap narrow">
+    <div class="honest">
+      <div class="eye">Липсва състезание?</div>
+      <h2 style="font-size:clamp(22px,4vw,30px)">Кажи ни и го добавяме</h2>
+      <p style="color:var(--steel);margin-top:8px">Календарът се пълни на ръка, от нас. Затова е точен — и затова
+      понякога изостава. Ако знаеш състезание, което не е тук, пиши ни и ще влезе същия ден.</p>
+      <a class="btn" style="max-width:280px;margin-top:18px;display:inline-block;width:auto;padding:14px 26px"
+         href="mailto:zdravei@yatto.app?subject=Липсващо%20състезание">Пиши ни</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fnav">
+      <a href="index.html">Начало</a>
+      <a href="sastezaniya.html">Състезания</a>
+      <a href="zali.html">Зали</a>
+      <a href="app/">Влез в приложението</a>
+    </div>
+    <div class="fnav">
+      <a href="https://instagram.com/" target="_blank" rel="noopener">Instagram</a>
+      <a href="mailto:zdravei@yatto.app">Пиши ни</a>
+    </div>
+    <div class="fbottom">© 2026 ЯТО · Направено в България</div>
+  </div>
+</footer>
+
+<script type="module">
+import { sb, configured, $, esc, dayNum, monthShort, dateRange, daysUntil, markActive } from "./site.js";
+
+markActive("sastezaniya.html");
+
+const list = $("#list");
+
+if (!configured) {
+  list.innerHTML = `<div class="blank"><h3>Календарът не е свързан</h3>
+    <p>Липсват настройките към базата.</p></div>`;
+} else {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await sb.from("competitions")
+    .select("*").gte("starts_on", today).order("starts_on", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    list.innerHTML = `<div class="blank"><h3>Не успяхме да заредим календара</h3>
+      <p>Презареди страницата. Ако продължава, пиши ни.</p></div>`;
+  } else {
+    const all = data || [];
+
+    const render = (key) => {
+      let rows = all;
+      if (key === "bg") rows = rows.filter(c => c.country === "България");
+      if (key === "abroad") rows = rows.filter(c => c.country !== "България");
+      if (key === "soon") rows = rows.filter(c => {
+        const d = daysUntil(c.registration_deadline);
+        return d !== null && d >= 0 && d <= 21;
+      });
+
+      if (!rows.length) {
+        list.innerHTML = all.length
+          ? `<div class="blank"><h3>Нищо по този филтър</h3>
+               <p>Пробвай „Всички“ — може състезанието да е в друга категория.</p></div>`
+          : `<div class="blank"><h3>Още няма въведени състезания</h3>
+               <p>Тук ще стои календарът. Пълним го на ръка, защото публичен списък
+               на състезанията в България просто не съществува — това е и причината
+               да правим ЯТО. Запиши се и ще ти пишем, щом има какво да гледаш.</p>
+               <a class="btn" style="width:auto;display:inline-block;padding:14px 26px;margin-top:18px"
+                  href="index.html#zapisvane">Запиши се</a></div>`;
+        return;
+      }
+
+      list.innerHTML = rows.map(c => {
+        const dl = daysUntil(c.registration_deadline);
+        const d = daysUntil(c.starts_on);
+        return `
+        <article class="rowcard">
+          <div class="when"><b class="tnum">${dayNum(c.starts_on)}</b><span>${monthShort(c.starts_on)}</span></div>
+          <div class="body">
+            <h3>${esc(c.name)}</h3>
+            <div class="meta">${esc(dateRange(c.starts_on, c.ends_on))} · ${esc(c.city)}${
+              c.country !== "България" ? ", " + esc(c.country) : ""}${
+              c.distance_km ? " · " + c.distance_km + " км от София" : ""}</div>
+            <div class="tagrow">
+              ${c.format ? `<span class="tag">${esc(c.format)}</span>` : ""}
+              ${c.divisions ? `<span class="tag">${esc(c.divisions)}</span>` : ""}
+              ${c.fee ? `<span class="tag">${esc(c.fee)}</span>` : ""}
+              ${dl !== null && dl >= 0 && dl <= 21
+                ? `<span class="tag wn">Регистрация до ${esc(dateRange(c.registration_deadline))}</span>` : ""}
+              ${d !== null && d <= 30 ? `<span class="tag em">След ${d} ${d === 1 ? "ден" : "дни"}</span>` : ""}
+            </div>
+            ${c.notes ? `<p class="meta" style="margin-top:11px;white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
+            <div>
+              ${c.registration_url
+                ? `<a class="go" href="${esc(c.registration_url)}" target="_blank" rel="noopener">Към регистрацията ↗</a>`
+                : ""}
+              <a class="go" style="margin-left:${c.registration_url ? "16px" : "0"}" href="app/">Кой отива →</a>
+            </div>
+          </div>
+        </article>`;
+      }).join("");
+    };
+
+    render("all");
+    $("#filters").addEventListener("click", (e) => {
+      const b = e.target.closest(".fbtn"); if (!b) return;
+      $("#filters").querySelectorAll(".fbtn").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      render(b.dataset.k);
+    });
+  }
+}
+</script>
+</body>
+</html>

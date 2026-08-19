@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Зали за функционален фитнес и CrossFit в България — ЯТО</title>
+<meta name="description" content="Зали за функционален фитнес и CrossFit в България — по градове, с цени за drop-in. Официалните CrossFit афилиати и хибридните зали на едно място.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Зали за функционален фитнес в България — ЯТО">
+<meta property="og:description" content="Къде да тренираш в България — по градове, с цени за drop-in.">
+<meta property="og:image" content="og.png">
+<meta property="og:locale" content="bg_BG">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  .gymbadge{width:56px;flex:none;height:56px;border-radius:15px;display:flex;align-items:center;
+    justify-content:center;font-family:var(--display);font-size:15px;font-weight:600;
+    background:linear-gradient(135deg,#79797B,#3B3E43);color:#fff}
+  .gymbadge.y{background:linear-gradient(135deg,#F1FF00,#C8D400);color:#101214}
+  @media (max-width:520px){.gymbadge{width:46px;height:46px;font-size:13px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg viewBox="0 0 44 44" fill="none" stroke="#F1FF00" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 19 L22 7 L36 19" stroke-width="4.6"/>
+        <path d="M3 34 L10 27 L17 34" stroke-width="3.6" opacity=".5"/>
+        <path d="M27 34 L34 27 L41 34" stroke-width="3.6" opacity=".5"/>
+      </svg>
+      <b>Ято</b>
+    </a>
+    <div class="navlinks">
+      <a href="sastezaniya.html">Състезания</a>
+      <a href="zali.html">Зали</a>
+      <a class="navcta" href="app/">Влез</a>
+    </div>
+  </div>
+</nav>
+
+<header class="pagehead">
+  <div class="wrap">
+    <div class="eye">Къде да тренираш</div>
+    <h1>Зали</h1>
+    <p>Функционален фитнес и CrossFit в България. Списъкът тръгва от петте официални
+    афилиата и расте с всяка зала, която ни кажете.</p>
+  </div>
+</header>
+
+<section style="padding-top:20px">
+  <div class="wrap">
+    <div class="filters" id="filters"></div>
+    <div id="list"><div class="loading"></div><div class="loading"></div></div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap narrow">
+    <div class="honest">
+      <div class="eye">Твоята зала я няма?</div>
+      <h2 style="font-size:clamp(22px,4vw,30px)">Пиши ни и я добавяме</h2>
+      <p style="color:var(--steel);margin-top:8px">Не броим само официалните CrossFit афилиати — всяка зала
+      за функционален фитнес, която приема хора, ѝ е мястото тук.</p>
+      <a class="btn" style="width:auto;display:inline-block;padding:14px 26px;margin-top:18px"
+         href="mailto:zdravei@yatto.app?subject=Липсваща%20зала">Пиши ни</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fnav">
+      <a href="index.html">Начало</a>
+      <a href="sastezaniya.html">Състезания</a>
+      <a href="zali.html">Зали</a>
+      <a href="app/">Влез в приложението</a>
+    </div>
+    <div class="fnav">
+      <a href="https://instagram.com/" target="_blank" rel="noopener">Instagram</a>
+      <a href="mailto:zdravei@yatto.app">Пиши ни</a>
+    </div>
+    <div class="fbottom">© 2026 ЯТО · Направено в България</div>
+  </div>
+</footer>
+
+<script type="module">
+import { sb, configured, $, esc, markActive } from "./site.js";
+
+markActive("zali.html");
+
+const gymBadge = (name) => {
+  const core = String(name).replace(/^(crossfit|cf)\s*/i, "").trim() || name;
+  return core.slice(0, 3).toUpperCase();
+};
+
+const list = $("#list");
+
+if (!configured) {
+  list.innerHTML = `<div class="blank"><h3>Списъкът не е свързан</h3><p>Липсват настройките към базата.</p></div>`;
+} else {
+  const { data, error } = await sb.from("gyms").select("*").order("city").order("name");
+
+  if (error) {
+    console.error(error);
+    list.innerHTML = `<div class="blank"><h3>Не успяхме да заредим залите</h3>
+      <p>Презареди страницата.</p></div>`;
+  } else {
+    const all = data || [];
+    const cities = [...new Set(all.map(g => g.city))];
+
+    $("#filters").innerHTML = [`<button class="fbtn on" data-c="">Всички</button>`]
+      .concat(cities.map(c => `<button class="fbtn" data-c="${esc(c)}">${esc(c)}</button>`)).join("");
+
+    const render = (city) => {
+      const rows = all.filter(g => !city || g.city === city);
+      if (!rows.length) {
+        list.innerHTML = `<div class="blank"><h3>Няма зали тук</h3>
+          <p>Ако знаеш такава — кажи ни.</p></div>`;
+        return;
+      }
+      list.innerHTML = rows.map(g => `
+        <article class="rowcard">
+          <div class="gymbadge ${g.is_affiliate ? "y" : ""}">${esc(gymBadge(g.name))}</div>
+          <div class="body">
+            <h3>${esc(g.name)}</h3>
+            <div class="meta">${esc(g.city)}${g.country !== "България" ? ", " + esc(g.country) : ""}</div>
+            <div class="tagrow">
+              ${g.is_affiliate ? `<span class="tag em">Официален CrossFit афилиат</span>` : ""}
+              ${g.dropin_price ? `<span class="tag ok">Drop-in ${esc(g.dropin_price)}</span>` : ""}
+            </div>
+            ${g.notes ? `<p class="meta" style="margin-top:11px">${esc(g.notes)}</p>` : ""}
+            ${g.website ? `<div><a class="go" href="${esc(g.website)}" target="_blank" rel="noopener">Сайт ↗</a></div>` : ""}
+          </div>
+        </article>`).join("");
+    };
+
+    render("");
+    $("#filters").addEventListener("click", (e) => {
+      const b = e.target.closest(".fbtn"); if (!b) return;
+      $("#filters").querySelectorAll(".fbtn").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      render(b.dataset.c);
+    });
+  }
+}
+</script>
+</body>
+</html>
