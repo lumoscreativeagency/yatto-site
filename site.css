@@ -1,15 +1,43 @@
 /* ЯТО — споделени стилове за публичния сайт */
 :root{
-  --obsidian:#101214; --charcoal:#1A1D21; --graphite:#2A2D31; --graphite2:#3B3E43;
+  /* Черното вече не е неутрално — има зелен оттенък, за да седне
+     градиентът. Неонът #F1FF00 е жълто-зелен, така че двете си пасват. */
+  --obsidian:#0A0F0C; --charcoal:#141A17; --graphite:#212B25; --graphite2:#303D35;
+  --moss:#0E2118;      /* най-тъмното зелено в градиента */
+  --moss-lit:#14311F;  /* зеленото на светлото петно */
   --ember:#F1FF00; --ember-soft:#FBB03B; --chalk:#FFFFFF; --steel:#A9A9AB; --ash:#79797B;
   --ready:#34D399; --warn:#FBB03B; --danger:#FF3B5C; --data:#C9C9CB;
   --display:'Unbounded','Arial Black','DejaVu Sans',system-ui,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;background:#070B09}
 body{
   font-family:'Inter',system-ui,-apple-system,sans-serif;color:var(--chalk);
-  background:var(--obsidian);line-height:1.6;overflow-x:hidden;
+  background:transparent;line-height:1.6;overflow-x:hidden;
+  position:relative;
+}
+
+/* ============================================================
+   ФОН — черно към тъмно зелено
+   Отделен фиксиран слой, за да не се пресмята при всеки скрол.
+   Две петна се движат много бавно — усеща се, не се гледа.
+   ============================================================ */
+body::before{
+  content:"";position:fixed;inset:-20vmax;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(58vmax 46vmax at 18% 8%,  rgba(20,49,31,.62), transparent 64%),
+    radial-gradient(52vmax 44vmax at 88% 82%, rgba(14,33,24,.75), transparent 62%),
+    linear-gradient(168deg, #070B09 0%, #0B1710 46%, #08100C 100%);
+  animation:breathe 34s ease-in-out infinite alternate;
+}
+/* Тънка зърнистост, за да не се набива преходът на стъпки. */
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+}
+@keyframes breathe{
+  from{transform:translate3d(0,0,0) scale(1)}
+  to  {transform:translate3d(-2.2%,1.6%,0) scale(1.06)}
 }
 h1,h2,h3,.d{font-family:var(--display);text-transform:uppercase;letter-spacing:.02em;font-weight:600;line-height:1.02}
 a{color:inherit}
@@ -18,7 +46,7 @@ a{color:inherit}
 section{padding:76px 0;position:relative}
 
 /* ---------- nav ---------- */
-nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);background:rgba(16,18,20,.85);border-bottom:1px solid rgba(42,45,49,.8)}
+nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);background:rgba(8,13,10,.72);border-bottom:1px solid rgba(33,43,37,.9)}
 nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:13px;padding-bottom:13px}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
 .brand svg{width:32px;height:32px;flex:none}
@@ -30,7 +58,7 @@ nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-
   padding:64px 0 72px;
   background:
     radial-gradient(760px 520px at 12% -10%, rgba(241,255,0,.24), transparent 62%),
-    radial-gradient(620px 460px at 96% 8%, rgba(251,176,59,.10), transparent 60%);
+    radial-gradient(620px 460px at 96% 8%, rgba(52,211,153,.10), transparent 60%);
 }
 .hero .kicker{color:var(--ember);font-family:var(--display);font-size:12.5px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:18px}
 .hero h1{font-size:clamp(46px,10.5vw,92px);margin-bottom:20px}
@@ -182,6 +210,125 @@ footer .wrap{flex-direction:column;align-items:flex-start;gap:16px}
 .blank h3{font-size:20px;color:var(--steel);margin-bottom:10px}
 .blank p{color:var(--ash);max-width:460px;margin:0 auto;font-size:14.5px}
 .loading{height:96px;border-radius:18px;margin-bottom:12px;
-  background:linear-gradient(90deg,#1A1D21,#242830,#1A1D21);background-size:200% 100%;
+  background:linear-gradient(90deg,#141A17,#1E2A22,#141A17);background-size:200% 100%;
   animation:sk 1.3s infinite}
 @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+
+/* ============================================================
+   ДВИЖЕНИЕ
+   Правило: анимира се само това, което е на екрана. Класът .in
+   го слага наблюдателят в site.js. Извън екрана всичко спира —
+   иначе на телефон двайсет въртящи се контура изяждат батерията.
+   ============================================================ */
+
+@property --ang{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
+
+/* ---------- 1. Контур, който обикаля правоъгълника ---------- */
+.card, .rowcard, .f, .form, .honest, .blank, .pagehead .eye{ position:relative }
+
+.card::before, .rowcard::before, .f::before, .form::before,
+.honest::before, .blank::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:conic-gradient(from var(--ang),
+    transparent 0deg,
+    transparent 286deg,
+    rgba(52,211,153,.55) 316deg,
+    rgba(241,255,0,.95) 340deg,
+    rgba(52,211,153,.45) 352deg,
+    transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+          mask-composite:exclude;
+  opacity:0;transition:opacity .45s ease;pointer-events:none;
+}
+/* На екрана: тихо. Под мишката: буден. */
+.card.vis::before, .rowcard.vis::before, .f.vis::before,
+.form.vis::before, .honest.vis::before, .blank.vis::before{
+  opacity:.38; animation:travel 14s linear infinite;
+}
+.card.vis:hover::before, .rowcard.vis:hover::before, .f.vis:hover::before,
+.form.vis:focus-within::before, .honest.vis:hover::before{
+  opacity:1; animation-duration:3.4s;
+}
+/* Всяка карта тръгва от различен ъгъл — иначе изглежда като хор. */
+.grid > *:nth-child(2)::before, .fgrid > *:nth-child(2)::before{ animation-delay:-4.6s }
+.grid > *:nth-child(3)::before, .fgrid > *:nth-child(3)::before{ animation-delay:-9.2s }
+.rowcard:nth-child(2n)::before{ animation-delay:-5s }
+.rowcard:nth-child(3n)::before{ animation-delay:-10s }
+
+@keyframes travel{ to{ --ang:360deg } }
+
+/* Картите леко се повдигат, а не само светят */
+.card, .rowcard, .f{ transition:transform .3s cubic-bezier(.2,.7,.3,1), border-color .3s }
+.card:hover, .f:hover{ transform:translateY(-3px) }
+.rowcard:hover{ transform:translateX(3px) }
+
+/* ---------- 2. Бутони ---------- */
+/* Жълтото не носи контур — на него светлината се вижда като отблясък. */
+.btn, .navcta{ position:relative; overflow:hidden; isolation:isolate }
+.btn::after, .navcta::after{
+  content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.6), transparent);
+  transform:skewX(-18deg);pointer-events:none;
+}
+.btn:hover::after, .navcta:hover::after{ animation:sheen .75s ease-out }
+@keyframes sheen{ to{ left:120% } }
+
+/* Основният бутон има собствено дишане — той е това, което искаме да натиснат */
+.form .btn, .cta .btn{
+  box-shadow:0 0 0 0 rgba(241,255,0,.42);
+  animation:pulse 3.6s ease-out infinite;
+}
+@keyframes pulse{
+  0%  { box-shadow:0 0 0 0 rgba(241,255,0,.34) }
+  70% { box-shadow:0 0 0 16px rgba(241,255,0,0) }
+  100%{ box-shadow:0 0 0 0 rgba(241,255,0,0) }
+}
+.form .btn:hover, .cta .btn:hover{ animation:none }
+
+/* Филтрите и вторичните бутони */
+.fbtn{ transition:transform .18s, background .18s, border-color .18s, color .18s }
+.fbtn:hover{ transform:translateY(-1px); border-color:var(--graphite2) }
+.fbtn.on{ box-shadow:0 4px 18px -6px rgba(241,255,0,.5) }
+
+/* Връзките „Към регистрацията", „Кой отива" — подчертаване, което расте */
+.go, footer a, .navlinks a{ position:relative }
+.go::after{
+  content:"";position:absolute;left:0;right:100%;bottom:-2px;height:1px;
+  background:currentColor;transition:right .3s ease;
+}
+.go:hover::after{ right:0 }
+
+/* ---------- 3. Появяване при скрол ---------- */
+[data-rise]{
+  opacity:0;transform:translateY(18px);
+  transition:opacity .62s cubic-bezier(.2,.7,.3,1), transform .62s cubic-bezier(.2,.7,.3,1);
+}
+[data-rise].in{ opacity:1;transform:none }
+[data-rise].d1{ transition-delay:.07s }
+[data-rise].d2{ transition-delay:.14s }
+[data-rise].d3{ transition-delay:.21s }
+
+/* ---------- 4. Заглавната лента при скрол ---------- */
+nav{ transition:background .3s, border-color .3s, box-shadow .3s }
+nav.stuck{
+  background:rgba(8,13,10,.88);
+  border-bottom-color:rgba(52,211,153,.22);
+  box-shadow:0 10px 40px -24px rgba(0,0,0,.9);
+}
+
+/* ---------- 5. Кога всичко това спира ---------- */
+/* Ако човекът е спрял анимациите системно, спираме и ние.
+   Не е учтивост — на някои хора движението причинява прилошаване. */
+@media (prefers-reduced-motion:reduce){
+  body::before{ animation:none }
+  .card::before, .rowcard::before, .f::before, .form::before,
+  .honest::before, .blank::before{ animation:none !important; opacity:.3 }
+  .form .btn, .cta .btn{ animation:none }
+  .btn::after, .navcta::after{ display:none }
+  [data-rise]{ opacity:1;transform:none;transition:none }
+  .card:hover, .f:hover, .rowcard:hover{ transform:none }
+  html{ scroll-behavior:auto }
+}
