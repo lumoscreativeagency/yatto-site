@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Намери ято — ЯТО</title>
+<meta name="theme-color" content="#101214">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .deck{position:relative;height:462px;margin:6px 0 18px;touch-action:pan-y}
+  .swipe{position:absolute;inset:0;background:var(--charcoal);border:1px solid var(--graphite);
+    border-radius:22px;padding:22px;display:flex;flex-direction:column;
+    will-change:transform;user-select:none;-webkit-user-select:none;cursor:grab}
+  .swipe:active{cursor:grabbing}
+  .swipe.gone{transition:transform .32s ease,opacity .32s ease;opacity:0}
+  .swipe .big{width:86px;height:86px;border-radius:26px;display:flex;align-items:center;
+    justify-content:center;font-family:var(--display);font-size:30px;font-weight:600;color:#fff;
+    background:linear-gradient(135deg,#79797B,#3B3E43);margin-bottom:16px}
+  .swipe .big.y{background:linear-gradient(135deg,#F1FF00,#C8D400);color:#101214}
+  .swipe .big.g{background:linear-gradient(135deg,#FBB03B,#99582A)}
+  .swipe h2{font-size:25px;line-height:1.1;margin-bottom:5px}
+  .swipe .who{color:var(--steel);font-size:14px}
+  .swipe .bio{color:var(--steel);font-size:14px;margin-top:14px;line-height:1.55}
+  .pctbig{position:absolute;top:22px;right:22px;text-align:right}
+  .pctbig b{font-family:var(--display);font-size:30px;color:var(--ready);line-height:1;display:block}
+  .pctbig span{font-size:9px;color:var(--ash);text-transform:uppercase;letter-spacing:.1em}
+  .nonums{margin-top:auto;background:var(--obsidian);border:1px dashed var(--graphite2);
+    border-radius:12px;padding:13px 14px;color:var(--ash);font-size:12.5px;line-height:1.5}
+  .lifts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto}
+  .lift{background:var(--obsidian);border:1px solid var(--graphite);border-radius:12px;padding:9px 11px}
+  .lift b{font-family:var(--display);font-size:17px;display:block;line-height:1.15}
+  .lift span{font-size:9.5px;color:var(--ash);text-transform:uppercase;letter-spacing:.07em}
+  .stamp{position:absolute;top:28px;font-family:var(--display);font-size:26px;
+    padding:7px 16px;border-radius:12px;border:3px solid;opacity:0;transform:rotate(-11deg)}
+  .stamp.yes{left:24px;color:var(--ready);border-color:var(--ready)}
+  .stamp.no{right:24px;color:var(--danger);border-color:var(--danger);transform:rotate(11deg)}
+  .acts{display:flex;gap:14px;justify-content:center;align-items:center}
+  .circ{width:62px;height:62px;border-radius:50%;border:1px solid var(--graphite2);
+    background:var(--charcoal);color:var(--chalk);font-size:24px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:transform .12s,border-color .15s}
+  .circ:active{transform:scale(.92)}
+  .circ.no:hover{border-color:var(--danger);color:var(--danger)}
+  .circ.yes{width:72px;height:72px;background:var(--ember);color:#101214;border:0;font-size:28px}
+  .matchbox{background:linear-gradient(150deg,rgba(241,255,0,.16),transparent 62%),var(--charcoal);
+    border:1px solid rgba(241,255,0,.35);border-radius:var(--r);padding:18px;margin-bottom:12px}
+  .alertline{display:block;background:rgba(251,176,59,.10);border:1px solid rgba(251,176,59,.3);
+    border-radius:12px;padding:11px 13px;color:var(--warn);font-size:12.5px;line-height:1.5;
+    text-decoration:none;margin-bottom:12px}
+  .seg2{display:flex;background:var(--charcoal);border:1px solid var(--graphite);
+    border-radius:12px;padding:3px;margin-bottom:14px}
+  .seg2 button{flex:1;background:none;border:0;color:var(--steel);font-size:13px;font-weight:600;
+    padding:9px;border-radius:9px;cursor:pointer;font-family:inherit}
+  .seg2 button.on{background:var(--graphite2);color:var(--chalk)}
+  @media(max-width:380px){ .deck{height:430px} .swipe{padding:18px} }
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="bar"></div></div></header>
+<main><div class="wrap" id="root"><div class="skeleton" style="height:440px"></div></div></main>
+<nav class="tabs"></nav>
+
+<script type="module">
+import { sb, configured, $, esc, mountChrome, requireAuth, initials, igHandle,
+         matchScore, renderNotConfigured } from "./app.js";
+
+if (!configured) { mountChrome({ title:"Намери ято", active:"team" }); renderNotConfigured(); }
+else {
+  const me = await requireAuth();
+  if (me) {
+    mountChrome({ title: "Намери ято", active: "team", profile: me });
+    await boot(me);
+  }
+}
+
+async function boot(me) {
+  const root = $("#root");
+
+  // Профилът трябва да е попълнен, иначе съвпадението е безсмислено
+  if (!me.name || !me.instagram) {
+    root.innerHTML = `
+      <div class="setup">
+        <h3 style="font-size:18px;margin-bottom:8px">Първо си попълни профила</h3>
+        <p class="muted">Без име и Instagram никой не може да те намери, нито ти да се свържеш
+        с някого. Отнема минута.</p>
+        <a class="btn" style="margin-top:14px" href="profile.html">Към профила</a>
+      </div>`;
+    return;
+  }
+
+  const [{ data: people }, { data: mySwipes }, { data: myMatches }] = await Promise.all([
+    sb.from("profiles").select("*").neq("id", me.id),
+    sb.from("swipes").select("target_id"),
+    sb.from("matches").select("*"),
+  ]);
+
+  const seen = new Set((mySwipes || []).map(s => s.target_id));
+  const matchIds = new Set((myMatches || []).flatMap(m => [m.a_id, m.b_id]).filter(id => id !== me.id));
+
+  // подредени по съвпадение, без вече прегледаните
+  let deck = (people || [])
+    .filter(p => !seen.has(p.id) && !matchIds.has(p.id) && p.name)
+    .map(p => ({ ...p, m: matchScore(me, p) }))
+    .sort((a, b) => (b.m.pct ?? -1) - (a.m.pct ?? -1));
+
+  const iHaveNums = [me.snatch_kg, me.clean_jerk_kg, me.back_squat_kg, me.fran_seconds]
+    .some(v => Number(v) > 0);
+
+  render();
+
+  function render(tab = "deck") {
+    root.innerHTML = `
+      <div class="seg2" id="seg">
+        <button data-t="deck" class="${tab === "deck" ? "on" : ""}">Търси (${deck.length})</button>
+        <button data-t="matches" class="${tab === "matches" ? "on" : ""}">Съвпадения (${matchIds.size})</button>
+      </div>
+      <div id="pane"></div>`;
+
+    $("#seg").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-t]"); if (!b) return;
+      render(b.dataset.t);
+    });
+
+    if (tab === "deck") drawDeck(); else drawMatches();
+  }
+
+  function drawDeck() {
+    const pane = $("#pane");
+    if (!deck.length) {
+      pane.innerHTML = `
+        <div class="empty">
+          <h3>Няма кого да разгледаш</h3>
+          <p class="muted">Или ги разгледа всички, или още няма достатъчно хора.
+          При ${(people || []).length + 1} профила в базата това е нормално — покани хора от залата си.</p>
+        </div>
+        ${(people || []).length && seen.size
+          ? `<button class="btn ghost" id="reset">Покажи ги пак</button>` : ""}`;
+      $("#reset")?.addEventListener("click", async () => {
+        await sb.from("swipes").delete().eq("swiper_id", me.id);
+        location.reload();
+      });
+      return;
+    }
+
+    const top = deck[0], next = deck[1];
+    pane.innerHTML = `
+      ${iHaveNums ? "" : `
+        <a class="alertline" href="profile.html">
+          Нямаш попълнени килограми — затова никъде не пише процент.
+          Попълни ги в профила и подредбата става по ниво. ›
+        </a>`}
+      <div class="deck" id="deck">
+        ${next ? card(next, true) : ""}
+        ${card(top, false)}
+      </div>
+      <div class="acts">
+        <button class="circ no" id="nope" aria-label="Подмини">✕</button>
+        <button class="circ yes" id="yep" aria-label="Интересува ме">✓</button>
+      </div>
+      <p class="tiny" style="text-align:center;margin-top:14px">
+        Плъзни картата настрани или натисни бутоните.
+        Instagram-ите се показват само при взаимен интерес.</p>`;
+
+    wireSwipe();
+  }
+
+  function card(p, isBack) {
+    const pct = p.m.pct;
+    const hasNums = [p.snatch_kg, p.clean_jerk_kg, p.back_squat_kg, p.fran_seconds]
+      .some(v => Number(v) > 0);
+    const lift = (v, l) => v ? `<div class="lift"><b class="tnum">${esc(v)}</b><span>${l}</span></div>` : "";
+    const fran = p.fran_seconds
+      ? `<div class="lift"><b class="tnum">${Math.floor(p.fran_seconds/60)}:${String(p.fran_seconds%60).padStart(2,"0")}</b><span>Fran</span></div>` : "";
+    return `
+      <article class="swipe" data-id="${p.id}" style="${isBack ? "transform:scale(.96) translateY(10px);opacity:.6;pointer-events:none" : ""}">
+        <div class="stamp yes">ДА</div>
+        <div class="stamp no">НЕ</div>
+        ${pct !== null ? `<div class="pctbig"><b>${pct}%</b><span>съвпадение</span></div>` : ""}
+        <div class="big ${pct !== null && pct >= 80 ? "y" : "g"}">${esc(initials(p.name))}</div>
+        <h2>${esc(p.name)}</h2>
+        <div class="who">${[p.gym, p.division, p.city].filter(Boolean).map(esc).join(" · ") || "Без данни"}</div>
+        ${p.bio ? `<div class="bio">${esc(p.bio)}</div>` : ""}
+        ${p.m.reasons.length ? `<div class="chips" style="margin-top:12px">${
+          p.m.reasons.map(r => `<span class="pill ok">${esc(r)}</span>`).join("")}</div>` : ""}
+        ${hasNums
+          ? `<div class="lifts">
+              ${lift(p.snatch_kg, "Snatch, кг")}
+              ${lift(p.clean_jerk_kg, "C&amp;J, кг")}
+              ${lift(p.back_squat_kg, "Клек, кг")}
+              ${fran}
+            </div>`
+          : `<div class="nonums">Числата още не са попълнени — затова няма процент.<br>
+              Прецени по залата, дивизията и града.</div>`}
+      </article>`;
+  }
+
+  function wireSwipe() {
+    const el = $(".deck .swipe:last-child");
+    if (!el) return;
+    const yes = el.querySelector(".stamp.yes"), no = el.querySelector(".stamp.no");
+    let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false;
+
+    const down = (x, y) => { dragging = true; startX = x; startY = y; el.style.transition = "none"; };
+    const move = (x, y) => {
+      if (!dragging) return;
+      dx = x - startX; dy = y - startY;
+      el.style.transform = `translate(${dx}px, ${dy * .25}px) rotate(${dx / 22}deg)`;
+      yes.style.opacity = Math.max(0, Math.min(1, dx / 90));
+      no.style.opacity = Math.max(0, Math.min(1, -dx / 90));
+    };
+    const up = () => {
+      if (!dragging) return;
+      dragging = false;
+      el.style.transition = "transform .25s ease";
+      if (Math.abs(dx) > 95) decide(dx > 0);
+      else { el.style.transform = ""; yes.style.opacity = 0; no.style.opacity = 0; }
+      dx = 0;
+    };
+
+    el.addEventListener("pointerdown", e => { el.setPointerCapture(e.pointerId); down(e.clientX, e.clientY); });
+    el.addEventListener("pointermove", e => move(e.clientX, e.clientY));
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+
+    $("#yep").addEventListener("click", () => decide(true));
+    $("#nope").addEventListener("click", () => decide(false));
+
+    async function decide(liked) {
+      const target = deck[0];
+      el.style.transition = "transform .32s ease, opacity .32s ease";
+      el.style.transform = `translate(${liked ? 700 : -700}px, -40px) rotate(${liked ? 30 : -30}deg)`;
+      el.style.opacity = "0";
+
+      const { error } = await sb.from("swipes")
+        .upsert({ swiper_id: me.id, target_id: target.id, liked });
+      if (error) console.error(error);
+
+      let matched = false;
+      if (liked) {
+        const { data } = await sb.from("matches").select("*");
+        const ids = new Set((data || []).flatMap(m => [m.a_id, m.b_id]));
+        if (ids.has(target.id)) { matched = true; matchIds.add(target.id); }
+      }
+
+      deck = deck.slice(1);
+      setTimeout(() => { render("deck"); if (matched) celebrate(target); }, 260);
+    }
+  }
+
+  function celebrate(p) {
+    const ig = igHandle(p.instagram);
+    $("#pane").innerHTML = `
+      <div class="matchbox" style="text-align:center;padding:30px 20px">
+        <div class="d" style="font-size:13px;letter-spacing:.2em;color:var(--ember)">ВЗАИМЕН ИНТЕРЕС</div>
+        <h2 style="font-size:27px;margin:12px 0 8px">${esc(p.name)} също те хареса</h2>
+        <p class="muted">Сега можете да се чуете. Не отлагай — две седмици преди
+        старта чакането излиза скъпо.</p>
+        ${ig
+          ? `<a class="btn" style="margin-top:18px" target="_blank" rel="noopener"
+               href="https://instagram.com/${encodeURIComponent(ig)}">Пиши в Instagram @${esc(ig)}</a>`
+          : `<p class="tiny" style="margin-top:14px">Няма посочен Instagram — виж го в „Съвпадения" по-късно.</p>`}
+        <button class="btn ghost" style="margin-top:10px" id="cont">Продължи</button>
+      </div>`;
+    $("#cont").addEventListener("click", () => render("deck"));
+  }
+
+  function drawMatches() {
+    const pane = $("#pane");
+    const list = (people || []).filter(p => matchIds.has(p.id));
+    if (!list.length) {
+      pane.innerHTML = `<div class="empty"><h3>Още нямаш съвпадения</h3>
+        <p class="muted">Съвпадение става, когато и двамата се харесате.
+        Дотогава никой не вижда кого си харесал.</p></div>`;
+      return;
+    }
+    pane.innerHTML = list.map(p => {
+      const ig = igHandle(p.instagram);
+      return `<div class="matchbox">
+        <div class="ath">
+          <div class="ava y">${esc(initials(p.name))}</div>
+          <div style="min-width:0">
+            <div class="nm">${esc(p.name)}</div>
+            <div class="sub">${[p.gym, p.division, p.city].filter(Boolean).map(esc).join(" · ")}</div>
+          </div>
+        </div>
+        ${ig
+          ? `<a class="btn sm" style="margin-top:13px" target="_blank" rel="noopener"
+               href="https://instagram.com/${encodeURIComponent(ig)}">Пиши в Instagram @${esc(ig)}</a>`
+          : `<p class="tiny" style="margin-top:11px">Няма посочен Instagram.</p>`}
+      </div>`;
+    }).join("");
+  }
+}
+</script>
+</body>
+</html>

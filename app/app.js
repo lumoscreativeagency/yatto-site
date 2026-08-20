@@ -119,6 +119,7 @@ export function renderNotConfigured() {
 const ICONS = {
   home:  '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
   comps: '<path d="M8 3v4M16 3v4"/><rect x="3" y="6" width="18" height="15" rx="2.5"/><path d="M3 11h18"/>',
+  team:  '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-5.8 6.5-5.8s6.5 2.2 6.5 5.8"/><path d="M17 5.2A3.2 3.2 0 0 1 17 11.4"/><path d="M18.5 14.6c2 .7 3 2.6 3 5.4"/>',
   gyms:  '<path d="M4 9v6M20 9v6M7 6v12M17 6v12M7 12h10M2 11v2M22 11v2"/>',
   me:    '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c0-4 3.4-6.4 7.5-6.4s7.5 2.4 7.5 6.4"/>',
 };
@@ -139,6 +140,7 @@ export function mountChrome({ title, active, back = null, profile = null }) {
     const items = [
       ["index.html", "home", "Начало"],
       ["competitions.html", "comps", "Състезания"],
+      ["team.html", "team", "Ято"],
       ["gyms.html", "gyms", "Зали"],
       ["profile.html", "me", "Профил"],
     ];
@@ -170,4 +172,58 @@ export function profileNudge(profile) {
         </div>
       </div>
     </a>`;
+}
+
+
+/* ---------- съвпадение по ниво ----------
+   Смята се от истинските числа в двата профила.
+   Ако липсват данни, връщаме null — по-добре „няма данни",
+   отколкото измислен процент.                                */
+
+const LIFTS = ["snatch_kg", "clean_jerk_kg", "back_squat_kg"];
+
+export function matchScore(me, other) {
+  let score = 0, weight = 0;
+  const reasons = [];
+
+  // дивизия — най-силният сигнал
+  if (me.division && other.division) {
+    weight += 30;
+    if (me.division === other.division) { score += 30; reasons.push("Същата дивизия"); }
+  }
+
+  // град — логистика
+  if (me.city && other.city) {
+    weight += 20;
+    if (me.city === other.city) { score += 20; reasons.push("Същият град"); }
+  }
+
+  // вдигания — близост в проценти
+  const pairs = LIFTS.filter(k => Number(me[k]) > 0 && Number(other[k]) > 0);
+  const franPair = Number(me.fran_seconds) > 0 && Number(other.fran_seconds) > 0;
+  if (pairs.length) {
+    weight += 35;
+    const closeness = pairs.map(k => {
+      const a = Number(me[k]), b = Number(other[k]);
+      return 1 - Math.min(1, Math.abs(a - b) / Math.max(a, b));
+    });
+    const avg = closeness.reduce((x, y) => x + y, 0) / closeness.length;
+    score += 35 * avg;
+    if (avg > 0.85) reasons.push("Близки килограми");
+  }
+
+  // Fran — издръжливост
+  if (franPair) {
+    weight += 15;
+    const a = me.fran_seconds, b = other.fran_seconds;
+    const close = 1 - Math.min(1, Math.abs(a - b) / Math.max(a, b));
+    score += 15 * close;
+    if (close > 0.85) reasons.push("Близко Fran");
+  }
+
+  // Без нито едно общо число процентът би бил само „същия град, същата
+  // дивизия" — това е съвпадение по адрес, не по ниво. По-добре без процент.
+  if (!pairs.length && !franPair) return { pct: null, reasons, thin: true };
+
+  return { pct: Math.round((score / weight) * 100), reasons, thin: false };
 }
