@@ -45,12 +45,23 @@ create policy "own profile update"
   on public.profiles for update to authenticated
   using (auth.uid() = id) with check (auth.uid() = id);
 
--- ⚠️ Никой не може да се направи админ сам. Админ се дава само на ръка
--- от таблицата в Supabase. Тази функция пази това правило.
+-- ⚠️ Никой не може да се направи админ сам през приложението.
+-- Админ се дава на ръка от Supabase.
+--
+-- Как различаваме двете: заявка от вписан човек през приложението винаги
+-- носи auth.uid(). Заявка от Supabase / service_role няма auth.uid().
+--
+-- Дупка не се отваря: политиката "own profile update" по-горе е
+-- "to authenticated using (auth.uid() = id)" — невписан човек изобщо
+-- не стига до тази функция, RLS го спира преди нея.
+--
+-- (Първата версия връщаше ВСЯКА промяна на is_admin, включително от
+--  таблицата в Supabase. Тоест админ не можеше да се даде по никакъв
+--  начин. Поправено на 20 август 2026.)
 create or replace function public.prevent_admin_escalation()
 returns trigger language plpgsql security definer as $$
 begin
-  if new.is_admin is distinct from old.is_admin then
+  if auth.uid() is not null and new.is_admin is distinct from old.is_admin then
     new.is_admin := old.is_admin;
   end if;
   return new;
